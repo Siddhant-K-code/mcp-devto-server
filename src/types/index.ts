@@ -22,6 +22,7 @@ export interface DevToUser {
 }
 
 export interface DevToComment {
+  [x: string]: any;
   id: number;
   parent_id: number | null;
   body_html: string;

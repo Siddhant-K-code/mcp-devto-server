@@ -4,6 +4,7 @@ import type { DevToArticle, DevToComment, DevToUser } from '../types/index.js';
 export class DevToAPI {
   private readonly apiKey: string;
   private readonly baseUrl = 'https://dev.to/api';
+  static initialize: any;
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;

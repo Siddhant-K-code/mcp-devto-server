@@ -1,4 +1,9 @@
-import { TechnicalContext, ContentContext, AuthorContext, DiscussionContext } from '../types/index.js';
+import {
+  TechnicalContext,
+  ContentContext,
+  AuthorContext,
+  DiscussionContext
+} from '../types/index.js';
 
 // Technical term dictionaries
 const technicalTerms = {
@@ -10,14 +15,12 @@ const technicalTerms = {
 export function analyzeTechnicalDepth(content: string): TechnicalContext {
   const codeBlockCount = (content.match(/```[\s\S]*?```/g) || []).length;
 
-  // Count technical terms
   const foundTerms = {
     beginner: technicalTerms.beginner.filter(term => content.toLowerCase().includes(term.toLowerCase())),
     intermediate: technicalTerms.intermediate.filter(term => content.toLowerCase().includes(term.toLowerCase())),
     advanced: technicalTerms.advanced.filter(term => content.toLowerCase().includes(term.toLowerCase()))
   };
 
-  // Determine depth level
   let depth: 'beginner' | 'intermediate' | 'advanced' = 'beginner';
   if (foundTerms.advanced.length > 2 || codeBlockCount > 5) {
     depth = 'advanced';
@@ -25,64 +28,48 @@ export function analyzeTechnicalDepth(content: string): TechnicalContext {
     depth = 'intermediate';
   }
 
-  // Extract prerequisites
-  const prerequisites = extractPrerequisites(content);
-
   return {
     depth,
     codeBlockCount,
     technicalTerms: foundTerms,
-    prerequisites
+    prerequisites: extractPrerequisites(content)
   };
 }
 
 export function analyzeContent(title: string, content: string): ContentContext {
-  // Determine content type
-  const type = determineContentType(title, content);
-
-  // Analyze structure
-  const structure = {
-    hasIntroduction: hasIntroduction(content),
-    hasConclusion: hasConclusion(content),
-    sections: extractSections(content)
-  };
-
-  // Extract topics
-  const topics = extractTopics(content);
-
   return {
-    type,
-    structure,
-    topics
+    type: determineContentType(title, content),
+    structure: {
+      hasIntroduction: hasIntroduction(content),
+      hasConclusion: hasConclusion(content),
+      sections: extractSections(content)
+    },
+    topics: extractTopics(content)
   };
 }
 
 export function analyzeAuthor(author: any, articles: any[]): AuthorContext {
-  const expertise = determineExpertise(articles);
-  const averageReactions = calculateAverageReactions(articles);
-
   return {
     name: author.name,
-    expertise,
+    expertise: determineExpertise(articles),
     credibility: {
       joinDate: author.joined_at,
       articleCount: articles.length,
-      averageReactions
+      averageReactions: calculateAverageReactions(articles)
     }
   };
 }
 
 export function analyzeDiscussion(comments: any[]): DiscussionContext {
-  const quality = determineDiscussionQuality(comments);
-  const sentiment = analyzeCommentSentiment(comments);
-  const topics = extractDiscussionTopics(comments);
-  const expertContributions = identifyExpertContributions(comments);
-
   return {
-    quality,
-    sentiment,
-    topics,
-    expertContributions
+    quality: determineDiscussionQuality(comments),
+    sentiment: analyzeCommentSentiment(comments),
+    topics: extractDiscussionTopics(comments),
+    expertContributions: {
+      count: comments.filter(c => c.body_markdown.length > 300).length,
+      authors: Array.from(new Set(comments.filter(c => c.body_markdown.length > 300)
+        .map(c => c.user.username)))
+    }
   };
 }
 
@@ -120,15 +107,14 @@ function determineContentType(title: string, content: string): ContentContext['t
 
 function hasIntroduction(content: string): boolean {
   const firstSection = content.split('##')[0].toLowerCase();
-  return firstSection.includes('introduction') ||
-    firstSection.length > 200;
+  return firstSection.includes('introduction') || firstSection.length > 200;
 }
 
 function hasConclusion(content: string): boolean {
   const lastSection = content.split('##').pop()?.toLowerCase() || '';
   return lastSection.includes('conclusion') ||
-    lastSection.includes('summary') ||
-    lastSection.includes('final thoughts');
+         lastSection.includes('summary') ||
+         lastSection.includes('final thoughts');
 }
 
 function extractSections(content: string): string[] {
@@ -137,14 +123,11 @@ function extractSections(content: string): string[] {
 }
 
 function extractTopics(content: string): string[] {
-  // Extract topics from headings and emphasized text
   const topics = new Set<string>();
 
-  // Get headings
   const headings = content.match(/##\s*(.*)/g) || [];
   headings.forEach(heading => topics.add(heading.replace('##', '').trim()));
 
-  // Get emphasized text
   const emphasized = content.match(/\*\*(.*?)\*\*/g) || [];
   emphasized.forEach(text => topics.add(text.replace(/\*\*/g, '').trim()));
 
@@ -160,7 +143,6 @@ function determineExpertise(articles: any[]): string[] {
     });
   });
 
-  // Get top 5 most written about topics
   return Array.from(tagCounts.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
@@ -175,6 +157,8 @@ function calculateAverageReactions(articles: any[]): number {
 }
 
 function determineDiscussionQuality(comments: any[]): DiscussionContext['quality'] {
+  if (!comments.length) return 'low';
+
   const avgLength = comments.reduce((sum, comment) =>
     sum + comment.body_markdown.length, 0) / comments.length;
 
@@ -214,25 +198,10 @@ function extractDiscussionTopics(comments: any[]): string[] {
 
   comments.forEach(comment => {
     const words = comment.body_markdown.split(/\W+/);
-    words.forEach((word: string): void => {
+    words.forEach((word: string) => {
       if (word.length > 4) topics.add(word.toLowerCase());
     });
   });
 
   return Array.from(topics).slice(0, 10);
-}
-
-function identifyExpertContributions(comments: any[]): DiscussionContext['expertContributions'] {
-  const expertComments = comments.filter(comment =>
-    comment.body_markdown.length > 300 &&
-    (comment.body_markdown.includes('```') ||
-      comment.body_markdown.includes('http'))
-  );
-
-  const expertAuthors = new Set(expertComments.map(comment => comment.user.username));
-
-  return {
-    count: expertComments.length,
-    authors: Array.from(expertAuthors)
-  };
 }
